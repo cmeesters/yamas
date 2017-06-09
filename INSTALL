@@ -1,0 +1,6 @@
+Please note: YAMAS does not provide a dedicated installation routine.
+
+In case you downloaded a pre-compiled program, set your PATH variable to the
+directory where the 'yamas'-executable is located.
+
+In case you downloaded the source tarball, please consult the Manual (in the doc-directory).

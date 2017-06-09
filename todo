@@ -1,0 +1,156 @@
+#! /usr/bin/env python
+"""
+   yamas development tool for extracting
+   TODO, FIXME, and XXX flags from source code
+"""
+
+
+__author__ = "Christian Meesters"
+__date__ = '$Date$'
+__revision__ = '$Rev$'
+
+
+import os
+import sys
+import re
+from itertools import ifilterfalse
+from fnmatch import fnmatch
+
+def fnmatch2(filename, patterns):
+    """
+       Check several `patterns` against the given `filename`.
+       See `fnmatch.fnmatch` for more information.
+    """
+    for pattern in patterns:
+        if fnmatch(filename, pattern):
+            return True
+    return False
+
+def filter_filenames(filenames, patterns):
+    """
+       Iterate over all `filenames` that do not match any of the `patterns`.
+    """
+    return ifilterfalse(lambda f: fnmatch2(f, patterns), filenames)
+
+class TodoItem(object):
+    """
+       An item for the `TodoList`.
+    """
+    def __init__(self, filename, line_nr, text):
+        """Create a `TodoItem`."""
+        self.filename = filename
+        self.line_nr = line_nr
+        self.text = text
+        self.priority = text.count('!')
+
+    def __repr__(self):
+        return '%s(%r, %r, %r)' % (self.__class__.__name__, self.filename,
+                                   self.line_nr, self.text)
+
+    def __str__(self):
+        return '%s:%d:%s' % (self.filename, self.line_nr, self.text)
+
+    def __cmp__(self, other):
+        """Compare `self` with `other`.
+
+        The `priority` is the most important value, followed by
+        `filename` and `line_nr`.
+        """
+        return (cmp(other.priority, self.priority)
+                or cmp(self.filename, other.filename)
+                or cmp(self.line_nr, other.line_nr))
+
+
+class TodoList(object):
+    """
+       Container for `TodoItem` objects.
+
+       Has a method for extracting "TODO" information from files and
+       allows iteration over its sorted content.
+    """
+    def __init__(self, source_file=None, pattern='(todo|fixme|xxx)[ \t:]'):
+        """Create a `TodoList`.
+
+        If a files or filename is given as `source_file`, the "TODO"
+        information will be extracted.  Otherwise the `TodoList` is
+        empty.
+
+        The `pattern` is a regular expression that marks the start of
+        a "TODO" information.  The match itself and the text up to the
+        end of the line is extracted and saved in a `TodoItem` when
+        reading files with `read_file()`.
+
+        """
+        self.items = list()
+        self.pattern = re.compile(pattern, re.IGNORECASE)
+
+        if source_file is not None:
+            self.read_file(source_file)
+
+    def __len__(self):
+        return len(self.items)
+
+    def __iter__(self):
+        """Return iterator over the sorted content."""
+        self.items.sort()
+        return iter(self.items)
+
+    def read_file(self, source_file):
+        """
+           Read `source_file` and extract "TODO" information.
+        """
+        if isinstance(source_file, basestring):
+            source_file = open(source_file, 'r')
+
+        try:
+            filename = source_file.name
+
+            for line_nr, line in enumerate(source_file):
+                match = self.pattern.search(line)
+                if match:
+                    item = TodoItem(filename, line_nr, line[match.start():-1])
+                    self.items.append(item)
+        finally:
+            source_file.close()
+
+    def walk(self, root, dir_exclude=('CVS', '.svn'),
+             file_exclude=('*~', '*.bak', '*.bck', '*.py[co]')):
+        """
+           Walk the directory hierarchy from `root` down and extract "TODO"
+           information from the files.
+
+           Directories and files can be excluded by filename patterns.
+        """
+        for (root, dirs, files) in os.walk(root):
+            dirs[:] = filter_filenames(dirs, dir_exclude)
+            for filename in filter_filenames(files, file_exclude):
+                if filename.startswith('.'): continue
+                elif filename.endswith('html'): continue
+                elif filename.endswith('png'): continue
+                self.read_file(os.path.join(root, filename))
+
+def main():
+    """
+    Iterate over the command line arguments, treat them as filenames or
+    directories and extract "TODO" information from the files or all files
+    in the subdirectories.
+    """
+    todos = TodoList()
+    for filename in ('./trunk/include', './trunk/src/', './doc', './utilities',
+                     'SConstruct'):
+        if os.path.isdir(filename):
+            todos.walk(filename)
+        else:
+            todos.read_file(filename)
+
+    for item in todos:
+        print item
+
+    print >> sys.stderr, "Found %d item(s)." % len(todos)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception, error:
+        print error

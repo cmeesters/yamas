@@ -1,0 +1,319 @@
+% $Rev: 831 $
+% $LastChangedDate: 2011-11-25 13:28:29 +0100 (Fr, 25 Nov 2011) $ 
+% $Author: meesters $ 
+\chapter[Algorithms]{Algorithms in \textsc{yamas}}
+\label{algorithms}
+
+\section{Performing Association Tests}
+\label{algo:op:association}
+
+Right! -- Association testing is not part of meta-analysis itself. We simply mimicked the \textsc{plink} \citep{Purcell2007} association testing routine.
+
+\alert{\textsc{yamas} does not intend to compete with designated testing software such as \textsc{plink} \citep{Purcell2007}, \textsc{intersnp} \citep{Herold2009}, or \textsc{snptest} \citep{Consortium2007}. For most cases, we recommend using one of those programs as they are specialized software tools which most certainly provide the desired statistical test, while \textsc{yamas}'s association testing is most simple. Particularly \textsc{yamas} is not capable of dealing with quantitative traits while other tools are.}\\
+
+That being said, we still thought that implementing this feature has its use: If meta-analysis should be done within the schedule of a consortium's work plan, every partner has to provide files with association data in a designated format. This can be hard -- to say the least -- as it is always hard to coordinate many partners. In this case \textsc{yamas} might come to the rescue: Simply let every partner perform the basic association test (if our test is actually applicable) to their data and compare the results with \textsc{yamas}.
+
+\textsc{yamas} works on a standard \texttt{tped}/\texttt{tfam} file tuple (see \texttt{plink}, \url{http://pngu.mgh.harvard.edu/~purcell/plink/data.shtml}, for details). You may invoke \textsc{yamas} like this:
+
+\begin{lstlisting}[style=shell]
+$ yamas --assocfilename=path_and_name_of_your_tped_file_to_be_tested \
+        --missing=[missing character]
+\end{lstlisting}
+
+If the \verb+assocfilename+ is given no meta-analysis, but a simple association test (see below) is done. The \verb+missing+ flag can be used to specify the missing character in your \texttt{tped} file. It defaults to \texttt{0} and is optional.
+
+After the run a file ending on \texttt{.assoc} is created. It contains the following columns:
+
+\begin{table}[H]
+ \caption{\emph{List of column header and their meaning.}}
+ \centering
+\begin{tabular}{ll}
+\rowcolor{light-gray}column name & content\\\hline
+\verb+CHR+        & chromosome of that marker\\
+\verb+SNP+        & id of the SNP or marker\\
+\verb+BP+         & base pair position of that SNP\\
+\verb+EA+         & effect allele, which is chosen to be the minor one\\
+\verb+F_CA+       & frequency of this allele for cases\\
+\verb+F_CO+       & frequency of this allele for controls\\
+\verb+OA+         & other or major allele\\
+\verb+OR+         & odds ratio for \verb+EA+\\
+\verb+BETA+       & beta estimate (simply $\ln OR$)\\
+\verb+CHISQ+      & basic allelic test chi-square (1df)\\
+\verb+SE+         & the standard error\\
+\verb+P+          & the p-value of the $\chi^2$ test\\
+\verb+P_ARMITAGE+ & the p-value of the Armitage Trend test\\
+\end{tabular}
+\end{table}
+
+\section{Math}
+\label{algo:math}
+
+All math of a meta-analysis is fairly standard, a good overview for the case of GWAS-data is provided by \citet{Bakker2008}. In this text we will name our effect sizes $E$ and the weight of an effect $w$. 
+
+\subsection{Preliminaries}
+\label{algo:preliminaries}
+\textsc{yamas} accepts odds-ratios ($\mathrm{OR's}$) given as the effect, yet to perform our meta-analysis we need the effect sizes to be distributed around 0, therefore we assume
+\begin{equation}
+\label{algo:eq:effect}
+ E = \ln{(\mathrm{OR})}~.
+\end{equation}
+If \textsc{yamas} is asked to work with odds-ratios all later output for the effect size will be odds-ratios again.
+
+% TODO: Change mentioned constant, if the code changes
+\alert{What if $\mathrm{OR} = 0$? $\ln{(\mathrm{OR})}$ would be $-\infty$, right? Therefore, we came up with an \textit{ad hoc} solution and add constant value of 0.001 to such odds ratios. Hence, the final result should be read with care. Do you know a better solution? Please let us know. At least, we issue a warning message in such cases, see paragraph \ref{usage:warnings}.}
+
+Likewise, usually testing output gives the standard error of an test, yet for meta-analysis we need the weight for a particular effect size. Therefore we take
+\begin{equation}
+ \label{algo:eq:wheight}
+ w = \frac{1}{\mathrm{standard~error}^2}
+\end{equation}
+
+\subsection{Fixed effects}
+
+With equation \ref{algo:eq:effect} we are able to calculate the weighted mean for both, odds-ratios and beta-estimates:
+
+\begin{equation}
+ \label{algo:eq:wheighted_mean}
+ \bar{E} = \dfrac{\sum_{i=1}^{k} w_i \cdot E_i}{\sum_{i=1}^{k} w_i}
+\end{equation}
+and our averaged standard error is
+\begin{equation}
+ \label{algo:eq:averaged_se}
+ SE_{\bar{E}} = \sqrt{\dfrac{1}{\sum_{i=1}^{k} w_i}}~,
+\end{equation}
+for every dataset $i$ and $k$ datasets.
+
+We finally compute a $z$-value
+\begin{equation}
+ z = \dfrac{\bar{E}}{SE_{\bar{E}}}~,
+\end{equation}
+which we can use to calculate a p-value with a two-tailed test:
+\begin{equation}
+\label{algo:equ:p}
+ p = 2 \cdot \left(1 - \Theta(| z |) \right)~,
+\end{equation}
+where $\Theta(| z |)$ is the standard normal cumulative density distribution function.
+
+\subsection{Random effects}
+
+The above fixed effects model holds, if we assume that all studies essentially share a ``true'' effect. This assumption may be implausible, when comparing GWASes: Population stratification may imply different ``true'' effects for different markers. It may also happen that different studies in your sample considered covariates in a different way, e.\,g. studies working with different control cohorts, some may be general ``randomly'' selected individual sample and others may rely on controls from selected non-trait individuals. In such cases we should allow for a distribution of ``true'' effects.
+
+For this we need to decompose the variance. We compute the total variance (the observed one) and isolate the within-study variance. The difference between these values gives us the variance between studies, which we call $\tau^2$ \citep{DerSimonian1986}. We may consider three cases:
+\begin{enumerate}[a)]
+ \item The ``ideal'' (and most reliable) case is that all study effects are close to their mean and each study shows little variance. Therefore, we are inclined to believe: There is no variance between the studies -- $\tau^2$ is low (or zero).
+ \item There is variance between studies, but each study's variance is high and this explains the between-study variance: Given the imprecision of all studies we expect the studies to vary from one to another. Again, $\tau^2$ is low (or zero).
+ \item If there is variance between studies and each study's variance itself is low (which is frequently the case for quality-filtered GWASes!), we cannot explain the between-study variance and the excess variation will be reflected in a higher $\tau^2$. 
+\end{enumerate}
+
+Obviously $\tau^2$ increases if the variance between-studies decreases and/or if the observed within-study variance increases.
+
+\textsc{yamas} calculates a $Q$ statistic (originally proposed by W. Cochran \citep{Cochran1954}; see \citet{Huedo-Medina2006} for a nice overview), which represents the total variance\footnote{Internally \textsc{yamas} uses an extended version of the equation to compute $Q$.}:
+\begin{equation}
+ Q = \sum_{i=1}^{k} w_{i} \left(E_i - \bar{E} \right)^{2}~.
+\end{equation}
+
+If the only source of variance would be the within-study error, the expected value of $Q$ would be the degrees of freedom ($df$) of the meta-analysis. This consideration allows us to compute the between-study variance:
+\begin{equation}
+ \label{algo:eq:tau2}
+ \tau^2 = \left\{ \begin{array}{rl}
+ \dfrac{Q - df}{\left( \frac{\sum_{i=1}^{k} w_{i}}{\sum_{i=1}^{k} w_{i} E_{i}^{2}} \right) } & \mbox{ if $Q -df > 0$} \\
+  0 &\mbox{ otherwise}
+       \end{array} \right.
+\end{equation}
+
+The numerator ($Q - df$) is the excess variance, the denumerator is a scaling factor, which we need because $Q$ is a weighted sum of squares. With the denumerator, we ensure that $\tau^2$ has the right scale\footnote{Note that due to equation \ref{algo:eq:tau2} $\tau^2$ is actutally a biased estimator.}.
+
+With $\tau^2$ we are enabled to change equation \ref{algo:eq:wheight} to
+\begin{equation}
+ w^* = \frac{1}{\left( \mathrm{standard~error}^2 + \tau^2 \right)}~.
+\end{equation}
+
+All equations for the fixed effect model stay unchanged, except the replacement of $w_i$ to $w_i^*$.\\
+
+What did we learn so far about the random effects model? Without true heterogeneity among for the effect estimates the between-study variance ($\tau^2$) is zero, in which case random and fixed effect model are identical.
+
+\textsc{yamas} however does not include the $Q$ statistic in its output but the p-value for this statistic. $Q$ is $\chi^2$ distributed with $df$ degrees of freedom \citep{Gavaghan2000}.
+Hence the p-value is analogous to equation \ref{algo:equ:p}:
+\begin{equation}
+ p = 2 \cdot \left(1 - X(Q) \right)~,
+\end{equation}
+assuming $X$ to be the $\chi^2$ cummulative density distribution function.
+
+\section{Treating effects}
+
+\subsection{Effect Allele vs. ``Other'' Allele}
+\label{algo:alleles}
+
+\textsc{yamas} talks of effect alleles and other alleles. This might be confusing at first glance, yet as the community uses a variety of names designating the allele(s) where tests are conducted for, \textsc{yamas} chooses to use these names as identifiers which cannot be mistaken.
+
+A problem in GWAS meta-analysis is that partners within a consortium all need to agree upon allele designations: It is not uncommon to perform a test on the minor allele. But what actually is a minor allele? The one (for a particular marker) in the entire data set across all partners within that consortium? The one in a sub data set? The one in the cases of that sub data set? The one in the controls, only? You get the point.
+
+Now, in order to avoid such mismatches \textsc{yamas} refers to effect vs. other allele. Here are the definitions:
+
+A \textbf{effect allele} is the allele, where the performed test refers to.
+A \textbf{other allele} is the other one.
+
+\alert{We strongly recommend to tabulate both alleles under all circumstances. This ensures that the one actually performing the meta-analysis will be able to find apparent mismatches.} \newline 
+
+To lift the lid of the black box ``\textsc{yamas}'', imagine the following case:
+\begin{center}
+\begin{tabular}{lllll}
+\rowcolor{light-gray}Project Site & Effect & EA & OA & direction output\\\hline
+Site 1 & 0.3 & G & T & +\\
+Site 2 & -0.2 & T & G & +\\
+\end{tabular}
+\end{center}
+The result of project site 2 will be multiplied by $-1$ as the effect and other alleles are exactly switched and it can be assumed that the effects actually share the direction.
+
+\subsection{Equalizing all effects}
+\label{algo:equal}
+
+The above explained switching of effect directions may not be desired, for instance if your sample do not reliably report the effect alleles or for cross-disorder comparisons. In this case \textsc{yamas} can be asked to neglect the sign of each effect and treat it \textit{always} as positive using the \verb+-e+ or \verb+--equal_effects+ switch.
+
+\section{Point-Wise Marker Comparison}
+\label{algo:pointwise}
+
+Using \textsc{yamas} standard settings -- without additional algorithm selection -- will cause \textsc{yamas} to perform a marker-by-marker meta-analysis: Every marker is compared with its counterpart in the other projects. 
+
+\alert{As for \textsc{yamas} the marker's base pair position is needed to attribute proxy markers when using the ``proxy algorithm'' (see paragraph \ref{algo:fillwithproxies}). Hence, it is of prime importance that markers with identical id do share identical position values. Performing a marker-by-marker meta-analysis lets \textsc{yamas} control your input. A warning will be written in log file for every marker where the positions across different cohorts do not match.}
+
+\section{Using Reference Panels}
+
+With incomplete marker panels (e.\,g. because not all sample were imputed) \textsc{yamas} is able to fall back to reference panel information. The following two sections describes two approaches which we implemented.
+
+\subsection{Inserting mutual Proxies identified by Linkage Disequilibrium}
+\label{algo:fillwithproxies}
+
+As mentioned, meta-analysis usually requires to bring all involved marker panels of different studies to (more or less) the same content. One way to go is to impute all data sets to the (common) content of the HapMap- \citep{Consortium2003,Consortium2005,Consortium2007a} and / or the 1000-genomes-project \citep{Consortium2010}. The alternative is to accept a substantial power loss of the meta-analysis by analysing markers, SNP by SNP, for the common content per marker.
+
+\textsc{yamas}, now, is capable to avoid this power loss without the need to impute the data: By using reference data from the HapMap and 1000 genomes projects users are enabled to analyse all SNPs that are present in at least one of the experimental marker panels: LD-information is used to find substitute makers for those missing. For each SNP that is missing in one study, the marker from the study with largest r$^2$, according to HapMap data, with the missing marker is chosen as a “proxy SNP”. Furthermore, based on HapMap haplotype frequencies, “proxy alleles” of a SNP and its proxy-SNP are identified, i.e. it is decided which allele of the missing SNP predominantly occurs in combination with which allele of the proxy-SNP. For each SNP present in at least one study, MA of that SNP is done by combining the association results of the SNP or, if not available the proxy-SNP, across studies. Consistency of the direction of effects is automatically accounted for through the proxy allele definition.
+
+Using conventional MA and / or the LD-based information gathering method \textsc{yamas} offers an easy approach to MA of GWAS studies and access to any tabulated format of (GW)AS results. Suitable input reference files are available at the \textsc{yamas} download page.
+
+\subsubsection{Download and Usage of Reference Panels}
+
+All reference file can be found on the yamas web page:  \url{http://yamas.meb.uni-bonn.de/)}. Please download the appropriate file and save it to a location \textsc{yamas} is able to access. The current (as of version 0.8) source for the \textsc{yamas} reference panel is a mix of Hapmap3, build 36, data and 1000 genomes, pilot 1, data (see \url{ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/pilot_data/release/2010_03/pilot1/CEU.SRP000031.2010_03.genotypes.vcf.gz}).
+
+\alert{The file size of a reference panel can be enormous: In case your download failes or your connection is to slow, please contact us -- me might find a solution for you.}
+
+In order to find the reference file it needs to be specified by an additional keyword in the configuration file, e.\,g.:
+\begin{lstlisting}[style=Plain]
+# file with LD-proxy information
+Proxyfile = <path>/proxyreference.txt.gz
+\end{lstlisting}
+
+Also, \textsc{yamas} needs to be asked to perform this algorithm by using the \verb+-a+/\verb+--algo+-option:
+\begin{lstlisting}[style=shell]
+$ yamas --algo fillwithproxies
+\end{lstlisting}
+
+Per default all mutual markers with an r$^2~\geq~0.2$ are considered. In order to change this setting, use the \verb+--r2threshold+ flag:
+\begin{lstlisting}[style=shell]
+$ yamas --algo fillwithproxies --r2threshold 0.4
+\end{lstlisting}
+This will change the threshold to 0.4.
+
+In any case the default output file suffix is \verb+yamas_proxyanalysis+. This logfile contains additional columns. They are listed and explained in table \ref{usage:table:proxymarker_entries}.
+
+
+\subsubsection{Producing Own Reference Files}
+\label{algo:own_refernce_files}
+
+With \textsc{intersnp} \citep{Herold2009,Becker2010} (see \url{http://intersnp.meb.uni-bonn.de/}) it is possible to produce a file with r$^2$-values for all SNPs that lie within a pre-specified distance, for instance from HAPMAP and/or 1000 Genomes data (tped/tfam files). In addition to the basic keywords (TPED/TFAM, qc options,..) of \texttt{intersnp} (see the \textsc{intersnp}-manual), the following keywords have to be specified in the \textsc{intersnp}-selectionfile:
+\begin{table}[H]
+ \caption{\emph{List of additional \textsc{intersnp}-keywords} Those keywords have to be specified in the \textsc{intersnp}-selectionfile in order to produce a list of putative mutual proxy markers.}
+ \centering
+\begin{tabular}{ll}
+\rowcolor{light-gray} Additional keyword & Setting\\\hline
+TWO\_MARKER & 1\\
+TEST & 13\\
+QT &1\\
+HAPLO & 1\\
+HAPLO\_DIST & 10000\\
+DOHAPFILE & 1\\
+\end{tabular}
+\end{table}
+
+In the above example, r$^2$ will be computed for all SNPs with a distance smaller than 10000 bp. The outputfile (*hapfile.txt) will contain all SNP pairs for which r$^2$>0. An excerpt might look like:
+\begin{lstlisting}
+1 rs2462492 T C rs12752391 A G 955147 0.113 0
+1 rs2462492 T C rs34820586 C G 992041 0.131 0
+1 rs2462492 T C rs34381538 A G 1006926 0.132 0
+\end{lstlisting}
+
+Here, the columns have to be read as follows:
+\begin{enumerate}[Column 1)]
+ \item chromosome
+ \item marker id of the first marker, e.\,g. rs-id of the first SNP
+ \item minor allele of the first marker or SNP
+ \item major allele of the first marker or SNP
+ \item marker id of the second marker, e.\,g. rs-id of the second SNP
+ \item minor allele of the second marker or SNP
+ \item major allele of the second marker or SNP
+ \item the difference of the markers base pair positions
+ \item r$^2$
+ \item identifies proxy alleles. In line 1, \verb+0+ indicates that the haplotype A-A (composed of columns 3 and 6, for each SNP the first listed allele) is more frequent than expected under linkage disequilibrium (LE). It immediately follows that also the C-G haplotype is more frequent than expected under linkage disequilibrium. Therefore, allele A from SNP 1 and allele A from SNP 2 are mutual proxy alleles (see paragraph \ref{algo:fillwithproxies}), and likewise allele C from SNP 1 and allele G from SNP 2. In line 2, the situation is reverse, as indicated by a \verb+1+ in the last column. Here, allele A (column 3) from SNP1 and allele T (second(!) allele of SNP 2, column 7) are the mutual proxy alleles.
+\end{enumerate}
+
+A more detaile output is can be generated with the choice DOHAPFILE 2 when invoking \textsc{intersnp}, e.\,g.\footnote{Sorry for the rather tiny font size of this example, but else it would not fit on the page.}:
+\begin{lstlisting}[basicstyle=\scriptsize]
+16 rs1211375 A C rs3918352 A G 0.378 0.622 0.425 0.575 0.300 0.078 0.125 0.497 0.641 0.338 0
+16 rs1203957 T G rs3918352 A G 0.110 0.890 0.425 0.575 0.110 0.000 0.315 0.575 1.000 0.167 0
+16 rs3918352 A G rs11642609 C T 0.412 0.588 0.485 0.515 0.000 0.412 0.485 0.103 1.000 0.659 1
+\end{lstlisting}
+The first 7 columns are as before. Columns 8-9 are allele frequnecies for SNP1, columns 10-11 allele frequencies for SNP 2. Columns 12-15 are the 4 haplotype frequnecies, here in lexicographic order, i.e. ignoring the proxy definition. Column 16 is D’, column 17 r$^2$, and column 18 is the proxy indicator. The computation of the indicator is based on the allele and haplotype frequencies listed.
+
+
+\subsubsection{The Algorithm Itself}
+
+This paragraph shows the algorithm in pseudocode. Comments are preceeded with a $\vartriangleright$ sign.
+
+First \textsc{yamas} needs to read the mutual proxies:
+% \begin{algorithm} 
+%  \caption{Defining Proxies}
+%  \begin{algorithmic} 
+%   \State proxy   := <marker ID, r$^2$-value, proxy allele>
+%   \State proxies := map of \{marker ID $\rightarrow$ <vector of proxy>\}
+%   \ForAll{mutual proxies}
+%     \State proxies[ID of marker1].append(<ID of marker2, r$^2$-value, proxy allele>)
+%     \State proxies[ID of marker2].append(<ID of marker1, r$^2$-value, proxy allele>)
+%   \EndFor
+%  \end{algorithmic}
+% \end{algorithm}
+% 
+% Calculating the reference data is described in paragraph \ref{algo:own_refernce_files}. Once we have those proxies, its time to insert them:
+% 
+% \begin{algorithm}                      % enter the algorithm environment
+% \caption{Insert Proxies. We keep all definitions from Algorithm 1. }                          % give the algorithm a caption
+% \label{alg1}                           % and a label for \ref{} commands later in the document
+% \begin{algorithmic}                    % enter the algorithmic environment
+% \State lm := list of markers found per project per marker ID
+% \State mlt := map of \{rsid $\rightarrow$ lm\}
+% \State lp := list of projects
+% \For{lm$\gets$mlt, mlt}
+%     \If {sizeof(lm) $\leq$ sizeof(lp)}            \Comment{sizeof(lm) == sizeof(lp), if all projects contain that marker}
+%        \State marker\_id $\gets$ lm[0].marker\_id \Comment{as all IDs are equal, the first will suffice}
+%        \ForAll{pi in missing(lm)}                 \Comment{iterate over missing project IDs}
+%            \If {marker\_id in proxies}
+%                \ForAll{proxy in proxies}
+%                   \State newmarker $\gets$ proxy.marker\_id in missings
+%                   \State lm.push\_back(newmarker)
+%                \EndFor   
+%            \EndIf
+%        \EndFor 
+%     \EndIf 
+%     \State meta-analysis(lm)
+% \EndFor
+% \end{algorithmic}
+% \end{algorithm}
+
+\subsubsection{Problems}
+
+In case a proxy marker with r$^2$-value equal to 1.0 is entered, the case is ambiguous: Such r$^2$-values are only possible, is such one marker was monozygous. If such a proxy marker was used in the meta-analysis, information about it is written in the status column (see paragraph \ref{usage:warnings}). We advise to examine interesting results further with \texttt{intersnp}'s haplotype analysis algorithm (see \url{http://intersnp.meb.uni-bonn.de/}).
+
+
+\subsection{LD-blockwise Analysis}
+\label{algo:ldblockwise}
+% TODO: write chapter
+
+\alert{Chapter remains to be written.}

@@ -1,0 +1,17 @@
+% $Rev: 864 $
+% $LastChangedDate: 2012-01-23 10:32:16 +0100 (Mo, 23 Jan 2012) $ 
+% $Author: meesters $ 
+\chapter{Shorties}
+
+This chapter is a loose, non-comprehensive collection of useful tools for \verb+yamas+-users.
+
+Sorting files numerically the UNIX way:
+\begin{lstlisting}[style=shell]
+$ sort -nk <column> file > sorted file
+\end{lstlisting}
+
+There is no need to unzip those really big reference files, used in \verb+yamas+, as
+unzipping works on the fly without writing on the disk the unzipped file:
+\begin{lstlisting}[style=shell]
+$ gunzip -c <path to gzipped file> | <command, e.g. grep>
+\end{lstlisting}

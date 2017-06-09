@@ -1,0 +1,396 @@
+% $Rev: 925 $
+% $LastChangedDate: 2012-09-10 16:19:51 +0200 (Mo, 10 Sep 2012) $
+% $Author: meesters $
+\chapter[Usage]{Using \textsc{yamas}}
+
+First things first: This chapter shows several examples on the shell. Parameters given in angular brackets (e.\,g. \texttt{[parameter]}) are optional, required arguments are shown as \texttt{<arguments>}.
+
+Sometimes commands did not fit in one line. In this case you might see a backslash (\verb+\+) to indicate a line break. You may or may not copy this to your command shell - it doesn't matter for all shells known to us.
+
+\section{Defining Input}
+
+Input may be defined using the command line or a configuration file. However, not all arguments can be given using both interfaces.
+
+\subsection{The Commandline}
+
+Command line arguments are given as follows:
+
+\begin{lstlisting}[style=shell]
+$ yamas -t 4
+$ # or
+$ yamas --threads 4
+\end{lstlisting}
+
+Options usually come with a short (\verb+-+) and a long (\verb+--+), more verbose, version. You may choose, they are equivalent. However, some options are short or long, only. The following table shows a complete list of options.
+
+And you may ask \textsc{yamas} for help, if you like:
+\begin{lstlisting}[style=shell]
+$ yamas -h
+$ # or
+$ yamas --help
+\end{lstlisting}
+A full list of possible command line options is given along with their defaults.\\
+
+\begin{table}[H]
+ \caption{\emph{List of available command line options.} A detailed description for some is given below.}
+ \centering
+ \label{usage:table:commandline_options}
+\begin{tabular}{p{3cm}p{7cm}p{4cm}}
+\rowcolor{light-gray}Option & Description & Reference\\\hline
+\verb+-t+, \verb+--threads+ & gives the number of threads to use for parallel algorithms  & see paragraph \ref{usage:op:threading}\\
+\verb+-c+, \verb+--config+  & specifies path to the configuration file                    & see paragraph \ref{usage:op:configfile}\\
+\verb+-l+, \verb+--logfile+ & specifies name of the log file \textsc{yamas} produces -- this is also the major output file
+                                                                                          & see paragraph \ref{usage:op:logfile}\\
+\verb+-a+, \verb+--algo+    & specifies the algorithm to perform                          & see paragraph \ref{usage:op:algorithms}\\
+\verb+--odds_ratio+         & whether or not \textsc{yamas} is dealing with odds ratios, default is no & --- \\
+\verb+-v+, \verb+--verbose+  & if set, \textsc{yamas} will behave a little more verbose   & see paragraph \ref{usage:op:verbosity}\\
+\verb+ --cl+		    & set confidence level for confidence intervals (default value: 0.95) & see paragraph \ref{usage:output} \\
+\verb+-p+, \verb+--pthreshold+ & only markers with combined P-vlalues $\leq$ this threshold will be written to the log file & ---\\
+\verb+--r2threshold+        & only proxy SNPs with an mutual r$^2 \geq$ this threshold will be considered & see paragraph \ref{algo:fillwithproxies}\\
+\verb+--chromosome+         & can be used to select a specific chromosome to be analysed, only & see paragraph \ref{usage:op:chromosome}\\
+\verb+--assocfilename+      & if set, a basic association test is performed                & see paragraph \ref{algo:op:association}\\
+\verb+-m+, \verb+--missing+ & can be used to alter the missing allele for an association test & see paragraph \ref{algo:op:association}\\
+\verb+--comparison+         & if set, input markers will be appended in the output log file per line & --- \\
+\verb+-e+, \verb+--equal_effects+ & if set, all effects will be assumed to be > 0 (betas) or > 1 (odds ratios) & see paragraph \ref{algo:equal}\\ \
+\verb+--trim+               & may be used to 'trim' the marker content to a desired subcontent & see paragraph \ref{usage:op:trimming}\\
+\verb+--skiplines+          & used to require skipping lines within input files & see paragraph
+\ref{usage:op:skiplines}\\
+\verb+--stats+              & will write out a little summary statistics file & --- \\
+\verb+--version+            & if set, \textsc{yamas} will report its version and revision number and exit &  --- \\
+\end{tabular}
+\end{table}
+
+\subsubsection{Threading}
+\label{usage:op:threading}
+With the \verb+-t+/\verb+--threads+ command line option the number of threads to use can be given. Per default only one thread will be used.
+
+Using more threads a tremendous speed-up can be achieved. However, we recommend setting $1 \leq \mathtt{threads} \leq \mathtt{ncpu}$, where \texttt{ncpu} is the number of available processors on a shared memory computers or computing node. Setting \texttt{threads} above this number may increase performance, but carries the risk of slowing the entire system. Please respect the needs of other users on multi-user systems: If the system has may CPUs, still only some may be available at a given time.
+
+\alert{Higher numbers of threads will essentially pay off with a larger amount of data and / or a more complex algorithm: For simple pointwise marker meta-analysis the calculation speed mainly depends on the hard disk speed and the CPU single core performance.}
+
+\subsubsection{Algorithms}
+\label{usage:op:algorithms}
+The \verb+-a+/\verb+--algo+ command line option is used to select a particular algorithm to perform. Default is \texttt{pointwise}. The following table shows a full list of available algorithms.\\
+\begin{table}[H]
+ \caption{\emph{List of available algorithm options.}}
+ \centering
+\begin{tabular}{p{0.2\linewidth}p{0.45\linewidth}p{0.25\linewidth}}
+\rowcolor{light-gray}Option & Description & Reference\\\hline
+\texttt{pointwise}  & a marker-by-marker conventional meta-analysis will be conducted (this is the default, when no algorithm is specified) & see paragraph \ref{algo:pointwise}\\
+\texttt{ldblockwise} & the marker with the ``best'' P-value per LD-block per data set is included in the meta-analysis & see paragraph \ref{algo:ldblockwise}\\
+\texttt{fillwithproxies} & if a marker is not found within a particular project \textsc{yamas} tries to identify the marker with the highest LD to the one we are looking for & see paragraph \ref{algo:fillwithproxies}\\
+\end{tabular}
+\end{table}
+A full explanation is given in chapter \ref{algorithms} on page \pageref{algorithms}.
+
+\subsubsection{Logfile}
+\label{usage:op:logfile}
+\textsc{yamas} will always write a log file, or better - dumps data to a log. With the \verb+-l+/\verb+--logfile+ option the name of the log file can be altered. The default name depends on the algorithm you choose.
+
+\alert{\textsc{yamas} will refuse to overwrite log files. This is a safety measure. In order to overcome this issue you, as a user, have to choose a different log file name or deleted the previous log file.}
+
+An example will look like:
+
+\begin{lstlisting}[style=shell]
+$ yamas -l my_comprehensive_log_file_name
+\end{lstlisting}
+
+We recommend to give only the base of a file name -- and no suffix, as \textsc{yamas} will choose the appropriate suffix for each file (several may be written out per run).
+
+\subsubsection{Chromosome}
+\label{usage:op:chromosome}
+The \verb+--chromosome+-option exists only in its long version. You can use it to restrict the analysis on only one chromosome. Valid Chromosomes are the numbers 1-26. \textsc{yamas} follows the numeric chromosome notation of plink (see \url{http://pngu.mgh.harvard.edu/~purcell/plink/data.shtml}):
+
+\begin{table}[H]
+ \caption{\emph{List of numeric chromosome codes.}}
+ \centering
+\begin{tabular}{lll}
+\rowcolor{light-gray}Code & Description & Number\\\hline
+1-22  & human autosomal chromosomes 1-22  & 1-22\\
+X     & X chromosome                      & 23\\
+Y     & Y chromosome                      & 24\\
+XY    & peusdo-autosomal region of X      & 25\\
+      & mitochondrial DNA                 & 26\\
+\end{tabular}
+\end{table}
+So far \textsc{yamas} makes no difference between the chromosomes. However, this might change in future versions\footnote{This, of course, is not anticipated for the meta-analysis itself.}.
+
+\subsubsection{Being Verbose}
+\label{usage:op:verbosity}
+Using the \verb+-v+-flag you can turn \textsc{yamas} to be pretty verbose: \textsc{yamas} will report frequently about what is going on in the background and how the progress is.
+
+If you experience trouble starting the \textsc{yamas} meta-analysis because \textsc{yamas} complains about your input file, you can also use the \verb+-v+-flag. If set, the option will cause \textsc{yamas} to print the expected parameter type, the column you specified and the header column it can read.
+
+In order to do so, \textsc{yamas} requires a header row starting with \verb+#+ in each data file:
+\begin{lstlisting}
+# field1 field2 field3 ...
+\end{lstlisting}
+
+If your configuration file is set up like the one in the following paragraph (paragraph \ref{usage:op:configfile}), the output will look like:
+\begin{lstlisting}
+          Column - You specified : YAMAS read
+      chromosome -             2 : field2
+          marker -             1 : field1
+        position -             3 : field3
+...
+\end{lstlisting}
+The order of the output is a bit arbitrary\footnote{Lexically sorted due to programmers laziness.}.
+
+\subsection{Trimming}
+\label{usage:op:trimming}
+Sometimes only a handful markers should to be analysed. If \textsc{yamas} is invoked with the \verb+--trim+ option, all data sets are entirely read in, but output will only be calculated for the desired subcontent of markers. Unlike other options \verb+--trim+ may be used in three different ways:
+
+\begin{itemize}
+ \item \begin{lstlisting}[style=shell]
+$ yamas --trim
+\end{lstlisting} Invoked without further arguments the final marker content will be identical to all valid markers within the first project data set.
+ \item \begin{lstlisting}[style=shell]
+$ yamas --trim rs123,rs1234,rs12345
+\end{lstlisting} If supplied with a comma-separated list of marker IDs, only the given markers are in the final analysis. Note, that there is no space between those marker IDs, just commas. Parsing the command line would be tedious and error-prone, if spaces were permitted.
+ \item \begin{lstlisting}[style=shell]
+$ yamas --trim filelist.txt
+\end{lstlisting} Alternatively marker IDs may be supplied in a file. As always with \textsc{yamas}, gzipped files are allowed. The file has to contain one marker per line. Lines starting with a hash-mark ('\verb+#+' as the first character) are considered comments.
+\end{itemize}
+
+\subsection{Skipping lines}
+\label{usage:op:skiplines}
+As mentioned in paragraph \ref{usage:op:configfile} lines starting with a hash mark (\verb+#+) can be used to ``outcomment'' lines. If this requires the manual manipulation of several input files, you can use the \verb+skiplines+ option to ask \textsc{yamas} to ignore the requested number of lines, e.\,g.:
+
+\begin{lstlisting}[style=shell]
+$ yamas --skiplines=4
+\end{lstlisting}
+will cause \textsc{yamas} to ignore the first 4 lines in \textit{all} the input files. Currently it is not possible to skip a different number of lines in different input files.
+
+
+\subsection{The Configuration File}
+\label{usage:op:configfile}
+
+As \textsc{yamas} requires many input parameters, using very long command line options would be awkward. Instead, a configuration file is used. Per default \textsc{yamas} looks in the current working directory for a file called \texttt{yamas.cfg}. If not present the program aborts and tells you that  it lacks input. However, with the command line options \verb+-c+ or \verb+--config+ you can define a different path and file name like this:
+\begin{lstlisting}[style=shell]
+$ yamas -c path_to_your_configuration_file/your_choosen_file_name.cfg
+\end{lstlisting}
+Even the file suffix is completely arbitrary and up to you.\\
+
+The file itself should be easy to understand. You can find a template in the \texttt{data}-directory of your \textsc{yamas} download. Here, we show you a template:
+
+\begin{lstlisting}[style=Plain]
+# Filenames containing the association data
+# (your actual input data files)
+assocfiles  = example_data1.csv example_data2.csv
+
+# column positions of the marker ids
+marker_cols = 1 2
+
+# column positions of the chromosome ids
+chromosome_cols = 2 1
+
+# column positions of marker positions
+position_cols = 3, None
+
+# column positions of marker's effect allele
+effect_allele_cols = 5,3
+
+# column positions of marker's other allele
+other_allele_cols = 6;4
+
+# column positions of marker's effect (beta or odds-ratio)
+effect_cols = 10 5
+
+# column positions of marker's effect standard error
+weight_cols = 11;6
+
+# column position of marker's p-value
+P-value_cols = 12,7
+\end{lstlisting}
+
+Let's walk through it step by step:
+\begin{itemize}
+ \item Any line starting with a \verb+#+ is considered a comment line\footnote{In fact, anything with \texttt{\#
+} in front will be considered a 'comment' in a configuration file. However, in data files (see paragraph \ref{usage:datafiles}) only entire lines can be commented out with the \texttt{\#}-mark at the first position of a line.}.
+ \item All lines with \verb+_cols+ are variable declarations. Do not change the variable / parameter names. We hope their naming is obvious. However: You, as a user, are asked to specify the columns in your input data files for markers (rs numbers), chromosomes, position of the marker (in bp as in snpdb), of the effect allele, of the ``other'' allele, of the effect (as odds ratio or beta estimate or frequentist value), of the standard error (STDERR), and the corresponding P-value. Please look in the example directory of your download. You will find several example files, too.
+
+ \item First you need to name the input data files holding your association data. These can be Plink \citep{Purcell2007} or \textsc{intersnp} \cite{Herold2009} output files, for instance.
+ \item Subsequently all column numbers need to be given for each parameter. First for file 1, then file 2, then file 3 (if present) - and so on.
+ \item As you can see, values can be separated by a single space, by commas, or a semicolon. You may mix theses separators at will.
+ \item Also note the '\texttt{None}' value for the second \verb+position_cols+'s entry: All strings or numbers < 0 will be recognized as unset parameters. This is no problem as long as a specific parameter is not mandatory. \textbf{Mandatory parameters are: Marker id, chromosome number (1-26 are valid), effect, standard error, and the P-value.} Depending on the algorithm also the position number is mandatory (e.\,g. filling proxy alleles requires positions for non-arbitrary output). \textsc{yamas} will issure warnings or throw errors at you, if it cannot cope with its input files. Please read them carefully and report anything you do not understand.
+\end{itemize}
+
+YAMAS offers a way to automatically generate configuration files for some of the more common formats if all the input files are written in the same format:
+\begin{lstlisting}[style=shell]
+$ yamas --writeFORMATconfigfile="infile01.extension infile02.extension \
+infile03.extension ...."
+\end{lstlisting}
+The names of the files can be separated by any number of spaces, '','' or '';''.
+
+\begin{table}[H]
+ \caption{\emph{List of available configuration file generator commands.} See notes below.}
+ \centering
+\begin{tabular}{lll}
+\rowcolor{light-gray} Command & Default input file extension & Remark\\\hline
+\verb+--writePLINKconfigfile+  & *.assoc      & from standard '-assoc'\\
+\verb+--writeINTERSNPconfigfileLogistic+  & *.txt     & from logistic regression \\
+\verb+--writeINTERSNPconfigfileLinear+  & *.txt     & from linear regression \\
+\verb+--writeINTERSNPconfigfileLinear+ & self-choosen & ---\\
+\verb+--writeYAMASconfigfile+ & .assoc & ---\\
+\end{tabular}
+\end{table}
+
+Currently, there is no way to automatically generate configuration files if not all of the input files are formatted in the same way. We strongly recommend to cross-check your input files with automatically generated configuration files.
+
+\section{Data Files}
+\label{usage:datafiles}
+
+All input data has to be plain ASCII-text, ordered in columns. As column separator(s) may serve whitespace, commas and semi-colons - or any combination of these. The hash marker (\verb+#+) serves as an indicator for a  comment line, if placed as the very first character of a line. We recommend that you establish the first line of a file as comment or header line, e.\,g. like this:
+
+\begin{lstlisting}[style=Plain]
+# CHR        SNP     BP EA RA      OR     BETA      SE       P
+    1  rs3094315 742429  C  T  0.8608  -0.1499  0.0240  0.2357
+\end{lstlisting}
+
+The first line of a file is interpreted as the line containing column identifiers. These are written to the shell for your convenience: This way configuration files can be checked at a glance (see paragraph \ref{usage:op:verbosity} on \textsc{yamas}'s verbosity).
+
+\alert{Essentially \textbf{all} non-numeric input has to be escaped with the hash mark as the very first sign of a line. Else \textsc{yamas} will try to interpret that line as input data -- which will fail and leads to an abortion of a \textsc{yamas} run. However, only the first line's content will be written out as described. The only exception to this rule is skipping lines as described in paragraph \ref{usage:op:skiplines}}.\\
+
+All column identifiers in the comment line are completely arbitrary and only for your own purpose as a user.
+
+All the columns in the example are mandatory -- with the exception of the \verb+OR+ \textbf{or} \verb+BETA+ column, where only one will be used to determine the effect size (see below):
+
+\begin{table}[H]
+ \caption{\emph{List of mandatory input data columns.} Columns labels in the header line are completely arbitrary and your choice.}
+ \centering
+\begin{tabular}{p{6cm}p{8cm}}
+\rowcolor{light-gray}Description & Explanation\\\hline
+the marker id  & Should contain the SNP or CNV id as the comparisons require an universal identifier. Any unique string can be used as an id -- of course, we thought of rs ids when we were designing the software.\\
+the chromosome where a maker is located & To minimize memory usage \textsc{yamas} reads in data chromosome wise to ensure ``supersets'' of common data. The chromosome has to be a number in the range 1--26 (see paragraph \ref{usage:op:verbosity}).\\
+the marker position on that chromosome & \textsc{yamas} offers to compare markers in LD blocks, genes, pathways, etc.. Lacking other criteria the assignment is based on a marker's position (see paragraph \ref{algo:ldblockwise}.
+The position will be interpreted as an integer number. Avoid using floating point input for this column: 1.25E3 can be anything around 1250, but is not precise!\\
+the markers effect and reference or ``other'' alleles & These columns are used to issue control the input and to issue warnings, if mismatches occur. \textsc{yamas} will proceed analysing your data, but attempts to tell you, where pitfalls in later analysis or interpretation might be.\\
+the effect size & The effect size can be anything. We expect you to use \textsc{plink}'s \verb+OR+, \texttt{SNPTEST}'s \verb+frequentist+ output, \textsc{intersnp}'s $\beta$ or \verb+OR+, or something similar. However, the effect should either follow a normal distribution with $\mu = 0$ or be convertible: \textsc{yamas} tries to convert \verb+OR+ to $\beta$-estimates ($\ln{OR} = \beta$), if asked for with the \verb+--odds_ratio+ command line option.\\
+the standard error for this marker & This information is used to weight the effect sizes.\\
+the p-value of the previous analysis & Not strictly necessary, this column is can be used to compare input in output p-values.
+\end{tabular}
+\end{table}
+
+Let us take Plink \citep{Purcell2007} output as an example. The call
+\begin{lstlisting}[style=shell]
+$ plink --file <somefile> --assoc --ci 0.95
+\end{lstlisting}
+will generate output like:
+\begin{lstlisting}[style=Plain]
+ CHR         SNP         BP   A1      F_A      F_U   A2        CHISQ            P           OR           SE          L95          U95
+   1  rs12562034     758311    A   0.0907   0.1194    G        3.813      0.05085       0.7358       0.1575       0.5404        1.002
+\end{lstlisting}
+The \verb+--ci+ is necessary to produce the standard error column.
+
+Here the configuration file would show those column number:
+\begin{lstlisting}[style=Plain]
+assocfiles  = your_plink_output.assoc
+marker_cols = 2
+chromosome_cols = 1
+position_cols = 3
+effect_allele_cols = 4
+other_allele_cols = 6
+effect_cols = 10
+weight_cols = 11
+P-value_cols = 9
+\end{lstlisting}
+
+\subsection{Compressed Data Files}
+File sizes in GWAS studies can be enormous, hence compression sometimes is a must. In order to avoid the cumbersome compression-uncompression steps \textsc{yamas} is able to read gzipped files on the fly. This file format is common on UNIX environments, but also provided for Windows (\url{http://www.gzip.org/#exe}). The files have to have the \verb+.gz+-suffix in order to be recognized by \textsc{yamas}. Recognition is automatic, no further arguments have to be given by you, the user.
+
+\subsection{Auxilliary Data}
+
+\subsubsection{Proxy Markers}
+\label{usage:proxy_markers}
+
+The algorithm which assigns proxy markers in case of missing markers in one study panel (see paragraph \ref{algo:fillwithproxies} for details) requires a particular reference format. One such file is provided for download (see \url{http://yamas.meb.uni-bonn.de/}). It is also possible to generate such files with \textsc{intersnp} (\citet{Herold2009,Becker2010}; see paragraph \ref{algo:own_refernce_files}). In any case the file has do adhere the following format specified in paragraph \ref{algo:own_refernce_files}.
+
+\subsection{Output files}
+\label{usage:output}
+\textsc{yamas} will generate output files ending on \verb+.log+. Output files will look like this:
+
+\begin{table}[H]
+ \caption{\emph{List of column header and their meaning.}}
+ \centering
+\begin{tabular}{ll}
+\rowcolor{light-gray}column name & content\\\hline
+\verb+STATUS+     & status line for the maker, usually just OK, but might contain warnings\\
+\verb+CHR+        & chromosome of that marker\\
+\verb+SNP+        & id of the SNP or marker\\
+\verb+BP+         & base pair position of that SNP\\
+\verb+EA+         & effect allele, which is chosen to be the minor one\\
+\verb+OA+         & other or major allele\\
+\verb+DIRECTIONS+ & the directions of the effects per project, see below\\
+\verb+EFFECT+     & the averaged, weighted effect -- either as odds ratio or $\beta$-estimate\\
+\verb+WEIGHT+     & the averaged, weighted weight -- usually the standard error\\
+\verb+CI+	  & confidence interval for the fixed effect with default confidence level 0.95\\
+\verb+P+          & the P-value\\
+\verb+Q+          & P-value for between study variance, see paragraph \ref{algo:math}\\
+\verb+I^2+        & the I$^2$-statistics for the between study variance, see \citet{Huedo-Medina2006}\\
+\verb+EFFECT(R)+  & the random effect, see paragraph \ref{algo:math}\\
+\verb+WEIGHT(R)+ & the random effect weight, see paragraph \ref{algo:math}\\
+\verb+CI(R)+	  & confidence interval for the random effect with default confidence level 0.95\\
+\verb+P(R)+ & the random effect P-value, see paragraph \ref{algo:math}\\
+\end{tabular}
+\end{table}
+
+Some explanations:
+
+\begin{itemize}
+ \item The status line might contain warnings (see paragraph \ref{usage:warnings} about position or chromosome mismatches between markers or -- in the case of the ``proxy algorithm'' inform you that a  proxy marker has been entered.
+ \item The directions inform about the effect direction of the analysis per project:
+\end{itemize}
+
+\newcommand{\mc}[3]{\multicolumn{#1}{#2}{#3}}
+\begin{table}[H]
+ \caption{\emph{``Directions'' and their meaning.}}
+ \centering
+\begin{tabular}{p{0.15\textwidth}p{0.8\textwidth}}
+\rowcolor{light-gray}direction & meaning\\\hline
+\verb-+- & the direction of that marker was positive (odds ratio $> 1$ or $\beta$-estimate $> 0$)\\
+\verb+-+ & the direction of that marker was negative (odds ratio $\leq 1$ or $\beta$-estimate $\leq 0$)\\
+\verb+x+ & the marker of that project was present, but invalid\\
+\verb+?+ & the marker was missing for the respective project.\\
+\mc{2}{p{0.95\textwidth}}{Example:}\\
+\verb'--+x-?' & Here, the marker for the first, second and fifth project had a neg. direction. The direction was positive within the third project and not valid in the fourth. The last (sixth) project did not show that marker at all.\\
+\end{tabular}
+\end{table}
+
+\alert{What, if the markers alleles will not match those of the proxy (see paragraph \ref{algo:fillwithproxies})? \texttt{yamas} checks for HAPMAP/1k annotation conformity and will, if necessary work with the complement alleles -- no warning will be issued, but you can recognize this if the alleles in the final output won't match the input.}
+
+Here is how the logfile columns are extended in case of the proxy-algorithm (see paragraph \ref{algo:fillwithproxies}) if you choose to add the \verb+--comparison+ flag (see paragraph \ref{usage:table:commandline_options}). It then contains the following columns in addition:
+
+\begin{table}[H]
+ \caption{\emph{List of column header and their meaning. These values are only given, if the marker was a proxy marker and the proxy-algorithm (see paragraph \ref{algo:fillwithproxies}) was chosen.}}
+ \centering
+ \label{usage:table:proxymarker_entries}
+\begin{tabular}{p{3cm}p{12cm}}
+\rowcolor{light-gray}column name & content\\\hline
+\verb+R^2+     & the $R^2$ for a proxy marker or $0$ if the marker was no proxy marker\\
+\verb+PROXYALLELE+ & the proxy allele for a  proxy marker or \verb+None+ if the marker was no proxy marker\\
+\verb+STRANDSWITCH+ & $0$ or $1$, indicating a absence or presence of a strand switch for a proxy marker or \verb+None+ if the marker was no proxy marker\\
+
+\end{tabular}
+\end{table}
+
+\subsubsection{Status Messages Issued by \textsc{yamas}}
+\label{usage:warnings}
+
+\textsc{yamas} tries to be as tolerant as possible: Instead of aborting runs, the program will issue warnings in the status column. We know that you will probably parse the \textsc{yamas} output for further processing (e.\,g. in a Manhattan plot). Hence, all words in a status report are concatenated by the tilde character ('\texttt{$\sim$}').
+
+\begin{table}[H]
+ \caption{\emph{Status messages and their meaning.}
+The table reflects warning precedence is the one in the table. No 'position'-warning will :q:wbe given, when the proxy algorithm is called.}
+ \centering
+\begin{tabular}{p{0.4\textwidth}p{0.45\textwidth}}
+\rowcolor{light-gray}message & meaning\\\hline
+\texttt{OK} & alas, \textsc{yamas} did find nothing to complain about\\
+\texttt{WARNING:$\sim$chr.$\sim$mismatch} & indicator for a serious flaw in the datasets: markers with the same ID are reported to located at different chromosomes\\
+\texttt{WARNING:$\sim$1$\sim$OR$\sim$was$\sim$zero} & at least 1 given odds ratio was zero. This raises a problem for \textsc{yamas}, see paragraph \ref{algo:preliminaries} for further information.\\
+\texttt{WARNING:$\sim$position$\sim$mismatch} & the marker was missing for the respective project.\\
+\texttt{INFO:$\sim$proxy$\sim$with$\sim$}\verb+r^2+\texttt{$\sim$=1} & a proxy marker with $r^2$=1 was added (only applicable when the appropriate algorithm was called, see paragraph \ref{algo:fillwithproxies})\\
+\texttt{INFO:$\sim$entered$\sim$proxy} & a proxy marker was entered (only applicable when the appropriate algorithm was called, see paragraph \ref{algo:fillwithproxies}).
+\end{tabular}
+\end{table}
+
+\alert{Once one message other than \texttt{OK} was issued, no other warning or info is issued -- although more than on warning might apply.}

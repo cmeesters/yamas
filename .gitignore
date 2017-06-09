@@ -1,0 +1,12 @@
+trunk/src/*.o
+
+doc/*aux
+doc/*bbl
+doc/*blg
+doc/*log
+doc/*out
+doc/*toc
+doc/*bak
+ncap
+*.swp
+*.swo
