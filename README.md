@@ -1,4 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
+[![build_with scons](https://img.shields.io/badge/build_with-scons-lightgray.svg)](http://scons.org/)
+[![topic GWAS](https://img.shields.io/badge/topic-GWAS-brightgreen.svg)](https://en.wikipedia.org/wiki/Genome-wide_association_study)
 
 # yamas
 
