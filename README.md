@@ -14,13 +14,12 @@ A main purpose of imputation prior to metaanalysis (MA) is to unify the availabl
 
 ## Current features include:
 
-    meta-analysis marker by marker with fixed and random effects
-    meta-analysis per LD-block
-    filling up untyped or missing markers with proxy markers prior to meta-analysis – a reference file containing r2-values from HAPMAP/1k is provided
-    parallel reading of files
-    YAMAS is able to parse any tabulate file format
-    some algorithms are parallelized
-
+* meta-analysis marker by marker with fixed and random effects
+* meta-analysis per LD-block
+* filling up untyped or missing markers with proxy markers prior to meta-analysis – a reference file containing r2-values from HAPMAP/1k is provided
+* parallel reading of files
+* YAMAS is able to parse any tabulate file format
+* some algorithms are parallelized
 
 ## Citation:
 Meesters C, Leber M, Herold C, Angisch M, Mattheisen M, Drichel D, Lacour A, Becker T (2012). Quick, "imputation-free" meta-analysis with proxy-SNPs. BMC Bioinformatics. 2012 Sep 12;13:231. doi: 10.1186/1471-2105-13-231.
